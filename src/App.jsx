@@ -4,6 +4,7 @@ import Layout from './components/Layout';
 import Employees from './pages/Employees';
 import Salary from './pages/Salary';
 import Requests from './pages/Requests';
+import ChatGroups from './pages/ChatGroups';
 import './components/Layout.css'; // Load global CSS
 
 function App() {
@@ -14,6 +15,7 @@ function App() {
           <Route index element={<Employees />} />
           <Route path="salary" element={<Salary />} />
           <Route path="requests" element={<Requests />} />
+          <Route path="chat" element={<ChatGroups />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

@@ -100,4 +100,35 @@ export const updateRequestStatus = async (requestId, status, rejectionReason = n
     return response.data;
 };
 
+// --- Chat Groups ---
+export const createGroup = async (groupData) => {
+    const response = await api.post('/api/chat/groups', groupData);
+    return response.data;
+};
+
+export const deleteGroup = async (groupId) => {
+    const response = await api.delete(`/api/chat/groups/${groupId}`);
+    return response.data;
+};
+
+export const getUserGroups = async (userId) => {
+    const response = await api.get(`/api/chat/groups/${userId}`);
+    return response.data;
+};
+
+export const sendMessage = async (groupId, messageData) => {
+    const response = await api.post(`/api/chat/groups/${groupId}/messages`, messageData);
+    return response.data;
+};
+
+export const getMessages = async (groupId) => {
+    const response = await api.get(`/api/chat/groups/${groupId}/messages`);
+    return response.data;
+};
+
+export const markMessageAsRead = async (groupId, userId) => {
+    const response = await api.post(`/api/chat/groups/${groupId}/read`, { userId });
+    return response.data;
+};
+
 export default api;

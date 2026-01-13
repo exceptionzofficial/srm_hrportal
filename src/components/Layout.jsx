@@ -1,20 +1,97 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { FiUsers, FiDollarSign, FiLogOut, FiMenu, FiFileText } from 'react-icons/fi';
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+
 import './Layout.css';
+import { getUserGroups } from '../services/api';
 import srmLogo from '../assets/srm-logo.png';
+
 
 const Layout = () => {
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [pendingCount, setPendingCount] = useState(0);
+    const [notification, setNotification] = useState(null); // { message, type, groupId }
+    const lastCheckedTimeRef = useRef(Date.now());
+    const navigate = useNavigate();
+    // Hardcoded User ID (Must match ChatGroups.jsx)
+    const CURRENT_USER_ID = 'hr-admin-1';
 
     useEffect(() => {
         fetchPendingRequests();
-        // Poll every 30 seconds
-        const interval = setInterval(fetchPendingRequests, 30000);
-        return () => clearInterval(interval);
+        checkNewMessages();
+
+        // Poll every 30 seconds for requests
+        const requestInterval = setInterval(fetchPendingRequests, 30000);
+
+        // Poll every 10 seconds for chat messages
+        const chatInterval = setInterval(checkNewMessages, 10000);
+
+        return () => {
+            clearInterval(requestInterval);
+            clearInterval(chatInterval);
+        };
     }, []);
+
+    // Clear notification after 4 seconds
+    useEffect(() => {
+        if (notification) {
+            const timer = setTimeout(() => setNotification(null), 4000);
+            return () => clearTimeout(timer);
+        }
+    }, [notification]);
+
+    const checkNewMessages = async () => {
+        try {
+            const response = await getUserGroups(CURRENT_USER_ID);
+            if (response.success && response.data) {
+                // Find groups updated since last check
+                const newMessages = response.data.filter(g => {
+                    // Check if updated recently (after lastCheckedTime)
+                    // Firestore timestamp conversion might be needed if not auto-converted by api.js
+                    // Use fallback to Date.parse if it's a string, or .seconds if timestamp object
+                    let updatedTime = g.updatedAt;
+                    if (updatedTime && typeof updatedTime === 'object' && updatedTime._seconds) {
+                        updatedTime = updatedTime._seconds * 1000;
+                    } else if (typeof updatedTime === 'string') {
+                        updatedTime = new Date(updatedTime).getTime();
+                    }
+
+                    const activeGroupId = sessionStorage.getItem('HR_ACTIVE_GROUP');
+                    const isNew = updatedTime > lastCheckedTimeRef.current;
+                    const notMe = g.lastMessageSender !== 'HR Manager';
+                    const notActive = String(g.id) !== String(activeGroupId);
+
+                    return isNew && notMe && notActive;
+                });
+
+                if (newMessages.length > 0) {
+                    const lastGroup = newMessages[0];
+                    showNotification(
+                        `New message in ${lastGroup.name}: ${lastGroup.lastMessage}`,
+                        lastGroup.id
+                    );
+                    lastCheckedTimeRef.current = Date.now();
+                } else {
+                    // Update check time to avoid notifying old messages on reload if logic changes
+                    lastCheckedTimeRef.current = Date.now();
+                }
+            }
+        } catch (error) {
+            console.error('Error checking messages:', error);
+        }
+    };
+
+    const showNotification = (msg, groupId = null) => {
+        setNotification({ message: msg, type: 'info', groupId });
+    };
+
+    const handleNotificationClick = () => {
+        if (notification?.groupId) {
+            navigate('/chat', { state: { groupId: notification.groupId } });
+            setNotification(null);
+        }
+    };
 
     const fetchPendingRequests = async () => {
         try {
@@ -52,12 +129,28 @@ const Layout = () => {
                             )}
                         </div>
                     </NavLink>
+                    <NavLink to="/chat" className={({ isActive }) => isActive ? 'active' : ''}>
+                        <FiUsers /> Chat Groups
+                    </NavLink>
                 </nav>
                 <div className="logout">
                     <button><FiLogOut /> Logout</button>
                 </div>
             </aside>
             <main className="content">
+                {notification && (
+                    <div
+                        className="notification-toast"
+                        onClick={handleNotificationClick}
+                        style={{ cursor: notification.groupId ? 'pointer' : 'default' }}
+                    >
+                        <div className="toast-content">
+                            <FiUsers className="toast-icon" />
+                            <span>{notification.message}</span>
+                        </div>
+                        <button className="toast-close" onClick={(e) => { e.stopPropagation(); setNotification(null); }}>×</button>
+                    </div>
+                )}
                 <header className="top-bar">
                     <button onClick={() => setSidebarOpen(!sidebarOpen)} className="toggle-btn">
                         <FiMenu />
@@ -68,7 +161,7 @@ const Layout = () => {
                     <Outlet />
                 </div>
             </main>
-        </div>
+        </div >
     );
 };
 
