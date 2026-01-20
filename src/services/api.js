@@ -131,4 +131,24 @@ export const markMessageAsRead = async (groupId, userId) => {
     return response.data;
 };
 
+// --- Attendance Report ---
+export const getAttendanceReport = async (params) => {
+    let queryString = '';
+    if (typeof params === 'string') {
+        queryString = `?date=${params}`;
+    } else if (typeof params === 'object') {
+        const query = new URLSearchParams(params).toString();
+        queryString = `?${query}`;
+    }
+
+    const response = await api.get(`/api/attendance/report${queryString}`);
+    return response.data;
+};
+
+// --- Rules ---
+export const getEmployeeRules = async () => {
+    const response = await api.get('/api/settings/rules');
+    return response.data;
+};
+
 export default api;

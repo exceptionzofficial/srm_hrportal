@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useRef } from 'react';
-import { FiUsers, FiDollarSign, FiLogOut, FiMenu, FiFileText } from 'react-icons/fi';
+import { FiUsers, FiDollarSign, FiLogOut, FiMenu, FiFileText, FiClipboard } from 'react-icons/fi';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 
 import './Layout.css';
@@ -129,8 +129,14 @@ const Layout = () => {
                             )}
                         </div>
                     </NavLink>
+                    <NavLink to="/attendance-report" className={({ isActive }) => isActive ? 'active' : ''}>
+                        <FiClipboard /> Attendance Report
+                    </NavLink>
                     <NavLink to="/chat" className={({ isActive }) => isActive ? 'active' : ''}>
                         <FiUsers /> Chat Groups
+                    </NavLink>
+                    <NavLink to="/rules" className={({ isActive }) => isActive ? 'active' : ''}>
+                        <FiFileText /> Rules
                     </NavLink>
                 </nav>
                 <div className="logout">
