@@ -1,7 +1,8 @@
 
+
 import { useState, useEffect } from 'react';
-import { FiPlus, FiEdit2, FiTrash2, FiUser, FiMapPin, FiSearch, FiCreditCard, FiUpload, FiImage } from 'react-icons/fi';
-import { getEmployees, createEmployee, updateEmployee, deleteEmployee, getBranches, deleteFaceRegistration } from '../services/api';
+import { FiPlus, FiEdit2, FiTrash2, FiUser, FiMapPin, FiSearch, FiCreditCard, FiUpload, FiImage, FiMail, FiCheck, FiPhone } from 'react-icons/fi';
+import { getEmployees, createEmployee, updateEmployee, deleteEmployee, getBranches, deleteFaceRegistration, sendOTP, verifyOTP, sendSMSOTP, verifySMSOTP } from '../services/api';
 
 const Employees = () => {
     const [employees, setEmployees] = useState([]);
@@ -35,6 +36,20 @@ const Employees = () => {
     const [photoPreview, setPhotoPreview] = useState(null);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+
+    // OTP Verification States
+    const [otpSent, setOtpSent] = useState(false);
+    const [otp, setOtp] = useState('');
+    const [isVerified, setIsVerified] = useState(false);
+    const [otpLoading, setOtpLoading] = useState(false);
+    const [verifyLoading, setVerifyLoading] = useState(false);
+
+    // Phone OTP Verification States
+    const [phoneOtpSent, setPhoneOtpSent] = useState(false);
+    const [phoneOtp, setPhoneOtp] = useState('');
+    const [isPhoneVerified, setIsPhoneVerified] = useState(false);
+    const [phoneOtpLoading, setPhoneOtpLoading] = useState(false);
+    const [phoneVerifyLoading, setPhoneVerifyLoading] = useState(false);
 
     const [searchTerm, setSearchTerm] = useState('');
 
@@ -126,6 +141,14 @@ const Employees = () => {
         setPhotoFile(null);
         setPhotoPreview(null);
         setError('');
+        // Reset OTP states
+        setOtpSent(false);
+        setOtp('');
+        setIsVerified(false);
+        // Reset Phone OTP states
+        setPhoneOtpSent(false);
+        setPhoneOtp('');
+        setIsPhoneVerified(false);
     };
 
     const handlePhotoChange = (e) => {
@@ -137,6 +160,104 @@ const Employees = () => {
                 setPhotoPreview(reader.result);
             };
             reader.readAsDataURL(file);
+        }
+    };
+
+    // Send OTP to email
+    const handleSendOTP = async () => {
+        if (!formData.email) {
+            setError('Please enter an email address');
+            return;
+        }
+
+        setOtpLoading(true);
+        setError('');
+        try {
+            const response = await sendOTP(formData.email, formData.name || 'Employee');
+            setOtpSent(true);
+            const message = response.remainingSends > 0
+                ? `OTP sent! (${response.sendCount}/2 sends used, ${response.remainingSends} remaining)`
+                : 'Final OTP sent! No more resends available for 1 hour.';
+            setSuccess(message);
+            setTimeout(() => setSuccess(''), 5000);
+        } catch (error) {
+            const errorMsg = error.response?.data?.message || 'Failed to send OTP';
+            setError(errorMsg);
+            if (error.response?.data?.rateLimited) {
+                setTimeout(() => setError(''), 8000);
+            }
+        } finally {
+            setOtpLoading(false);
+        }
+    };
+
+    // Verify OTP
+    const handleVerifyOTP = async () => {
+        if (!otp) {
+            setError('Please enter the OTP');
+            return;
+        }
+
+        setVerifyLoading(true);
+        setError('');
+        try {
+            await verifyOTP(formData.email, otp);
+            setIsVerified(true);
+            setSuccess('Email verified successfully!');
+            setTimeout(() => setSuccess(''), 3000);
+        } catch (error) {
+            setError(error.response?.data?.message || 'Invalid OTP');
+        } finally {
+            setVerifyLoading(false);
+        }
+    };
+
+    // Send OTP to phone
+    const handleSendPhoneOTP = async () => {
+        if (!formData.phone) {
+            setError('Please enter a phone number');
+            return;
+        }
+
+        setPhoneOtpLoading(true);
+        setError('');
+        try {
+            const response = await sendSMSOTP(formData.phone, formData.name || 'Employee');
+            setPhoneOtpSent(true);
+            const message = response.remainingSends > 0
+                ? `OTP sent! (${response.sendCount}/2 sends used, ${response.remainingSends} remaining)`
+                : 'Final OTP sent! No more resends available for 1 hour.';
+            setSuccess(message);
+            setTimeout(() => setSuccess(''), 5000);
+        } catch (error) {
+            const errorMsg = error.response?.data?.message || 'Failed to send SMS OTP';
+            setError(errorMsg);
+            if (error.response?.data?.rateLimited) {
+                setTimeout(() => setError(''), 8000);
+            }
+        } finally {
+            setPhoneOtpLoading(false);
+        }
+    };
+
+    // Verify Phone OTP
+    const handleVerifyPhoneOTP = async () => {
+        if (!phoneOtp) {
+            setError('Please enter the OTP');
+            return;
+        }
+
+        setPhoneVerifyLoading(true);
+        setError('');
+        try {
+            await verifySMSOTP(formData.phone, phoneOtp);
+            setIsPhoneVerified(true);
+            setSuccess('Phone verified successfully!');
+            setTimeout(() => setSuccess(''), 3000);
+        } catch (error) {
+            setError(error.response?.data?.message || 'Invalid OTP');
+        } finally {
+            setPhoneVerifyLoading(false);
         }
     };
 
@@ -152,6 +273,12 @@ const Employees = () => {
 
         if (!formData.branchId && branches.length > 0) {
             setError('Please select a branch');
+            return;
+        }
+
+        // Check email verification for new employees
+        if (!editingEmployee && formData.email && !isVerified) {
+            setError('Please verify the email with OTP before creating employee');
             return;
         }
 
@@ -351,24 +478,138 @@ const Employees = () => {
                                     />
                                 </div>
                                 <div className="form-group">
-                                    <label className="form-label">Email</label>
-                                    <input
-                                        type="email"
-                                        className="form-input"
-                                        value={formData.email}
-                                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                        placeholder="Email address"
-                                    />
+                                    <label className="form-label"><FiMail style={{ marginRight: '6px' }} />Email</label>
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <input
+                                            type="email"
+                                            className="form-input"
+                                            value={formData.email}
+                                            onChange={(e) => {
+                                                setFormData({ ...formData, email: e.target.value });
+                                                // Reset OTP states when email changes
+                                                if (otpSent || isVerified) {
+                                                    setOtpSent(false);
+                                                    setOtp('');
+                                                    setIsVerified(false);
+                                                }
+                                            }}
+                                            placeholder="Email address"
+                                            disabled={editingEmployee}
+                                        />
+                                        {!editingEmployee && formData.email && !isVerified && (
+                                            <button
+                                                type="button"
+                                                className="btn btn-secondary"
+                                                onClick={handleSendOTP}
+                                                disabled={otpLoading}
+                                                style={{ whiteSpace: 'nowrap', minWidth: '100px', padding: '8px 16px' }}
+                                            >
+                                                {otpLoading ? 'Sending...' : otpSent ? 'Resend OTP' : 'Send OTP'}
+                                            </button>
+                                        )}
+                                        {isVerified && (
+                                            <div style={{ display: 'flex', alignItems: 'center', color: '#10b981', fontWeight: '600', gap: '4px' }}>
+                                                <FiCheck /> Verified
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* OTP Input - Show when OTP is sent but not verified */}
+                                    {!editingEmployee && otpSent && !isVerified && (
+                                        <div style={{ marginTop: '12px' }}>
+                                            <label className="form-label" style={{ fontSize: '13px' }}>Enter OTP (Check your email)</label>
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                <input
+                                                    type="text"
+                                                    className="form-input"
+                                                    value={otp}
+                                                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                                    placeholder="Enter 6-digit OTP"
+                                                    maxLength={6}
+                                                    style={{ fontSize: '16px', letterSpacing: '2px' }}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-primary"
+                                                    onClick={handleVerifyOTP}
+                                                    disabled={verifyLoading || otp.length !== 6}
+                                                    style={{ whiteSpace: 'nowrap', minWidth: '100px', padding: '8px 16px' }}
+                                                >
+                                                    {verifyLoading ? 'Verifying...' : 'Verify'}
+                                                </button>
+                                            </div>
+                                            <p className="form-hint" style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
+                                                OTP expires in 10 minutes. Check your spam folder if not received.
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="form-group">
-                                    <label className="form-label">Phone</label>
-                                    <input
-                                        type="tel"
-                                        className="form-input"
-                                        value={formData.phone}
-                                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                                        placeholder="Phone number"
-                                    />
+                                    <label className="form-label"><FiPhone style={{ marginRight: '6px' }} />Phone</label>
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <input
+                                            type="tel"
+                                            className="form-input"
+                                            value={formData.phone}
+                                            onChange={(e) => {
+                                                setFormData({ ...formData, phone: e.target.value });
+                                                // Reset Phone OTP states when phone changes
+                                                if (phoneOtpSent || isPhoneVerified) {
+                                                    setPhoneOtpSent(false);
+                                                    setPhoneOtp('');
+                                                    setIsPhoneVerified(false);
+                                                }
+                                            }}
+                                            placeholder="Phone number"
+                                            disabled={editingEmployee}
+                                        />
+                                        {!editingEmployee && formData.phone && !isPhoneVerified && (
+                                            <button
+                                                type="button"
+                                                className="btn btn-secondary"
+                                                onClick={handleSendPhoneOTP}
+                                                disabled={phoneOtpLoading}
+                                                style={{ whiteSpace: 'nowrap', minWidth: '100px' }}
+                                            >
+                                                {phoneOtpLoading ? 'Sending...' : phoneOtpSent ? 'Resend OTP' : 'Send OTP'}
+                                            </button>
+                                        )}
+                                        {isPhoneVerified && (
+                                            <div style={{ display: 'flex', alignItems: 'center', color: '#10b981', fontWeight: '600', gap: '4px' }}>
+                                                <FiCheck /> Verified
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Phone OTP Input - Show when OTP is sent but not verified */}
+                                    {!editingEmployee && phoneOtpSent && !isPhoneVerified && (
+                                        <div style={{ marginTop: '12px' }}>
+                                            <label className="form-label" style={{ fontSize: '13px' }}>Enter OTP (Check your phone)</label>
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                <input
+                                                    type="text"
+                                                    className="form-input"
+                                                    value={phoneOtp}
+                                                    onChange={(e) => setPhoneOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                                    placeholder="Enter 6-digit OTP"
+                                                    maxLength={6}
+                                                    style={{ fontSize: '16px', letterSpacing: '2px' }}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-primary"
+                                                    onClick={handleVerifyPhoneOTP}
+                                                    disabled={phoneVerifyLoading || phoneOtp.length !== 6}
+                                                    style={{ whiteSpace: 'nowrap', minWidth: '100px' }}
+                                                >
+                                                    {phoneVerifyLoading ? 'Verifying...' : 'Verify'}
+                                                </button>
+                                            </div>
+                                            <p className="form-hint" style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
+                                                OTP expires in 10 minutes. Check your messages.
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 

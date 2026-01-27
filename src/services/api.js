@@ -67,6 +67,28 @@ export const deleteFaceRegistration = async (employeeId) => {
     return response.data;
 };
 
+// ==================== OTP VERIFICATION ENDPOINTS ====================
+
+export const sendOTP = async (email, employeeName) => {
+    const response = await api.post('/api/otp/send', { email, employeeName });
+    return response.data;
+};
+
+export const verifyOTP = async (email, otp) => {
+    const response = await api.post('/api/otp/verify', { email, otp });
+    return response.data;
+};
+
+export const sendSMSOTP = async (phone, employeeName) => {
+    const response = await api.post('/api/otp/send-sms', { phone, employeeName });
+    return response.data;
+};
+
+export const verifySMSOTP = async (phone, otp) => {
+    const response = await api.post('/api/otp/verify-sms', { phone, otp });
+    return response.data;
+};
+
 // --- Salary ---
 export const createSalary = async (data) => {
     const response = await api.post('/api/salary', data);
