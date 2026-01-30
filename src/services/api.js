@@ -26,6 +26,11 @@ export const getEmployees = async () => {
     return response.data;
 };
 
+export const getEmployeeById = async (id) => {
+    const response = await api.get(`/api/employees/${id}`);
+    return response.data;
+};
+
 export const createEmployee = async (employeeData) => {
     // Use FormData if there's a photo file
     if (employeeData instanceof FormData) {
@@ -164,6 +169,13 @@ export const getAttendanceReport = async (params) => {
     }
 
     const response = await api.get(`/api/attendance/report${queryString}`);
+    return response.data;
+};
+
+export const getAttendanceCalendar = async (employeeId, month, year) => {
+    const response = await api.get(`/api/attendance/calendar/${employeeId}`, {
+        params: { month, year }
+    });
     return response.data;
 };
 
